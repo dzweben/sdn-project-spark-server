@@ -282,10 +282,13 @@ export default function FollowupPage() {
                                       <div className="bg-white rounded-lg border border-gray-200 p-3">
                                         <p className="text-xs font-bold text-gray-700 mb-2">Child ({childVisit.totalComplete}/{childVisit.totalSurveys})</p>
                                         {childVisit.surveys.map((s) => (
-                                          <div key={s.instrumentName} className="flex items-center text-xs">
+                                          <div key={s.instrumentName} className="flex items-center justify-between text-xs">
                                             <span className={s.isComplete ? "text-green-600" : "text-red-600"}>
                                               {s.isComplete ? "\u2713" : "\u2717"} {s.label}
                                             </span>
+                                            {!s.isComplete && (
+                                              <SurveyLinkButton recordId={p.recordId} event={childVisit.eventName} instrument={s.instrumentName} />
+                                            )}
                                           </div>
                                         ))}
                                       </div>
@@ -294,10 +297,13 @@ export default function FollowupPage() {
                                       <div className="bg-white rounded-lg border border-gray-200 p-3">
                                         <p className="text-xs font-bold text-gray-700 mb-2">Parent ({parentVisit.totalComplete}/{parentVisit.totalSurveys})</p>
                                         {parentVisit.surveys.map((s) => (
-                                          <div key={s.instrumentName} className="flex items-center text-xs">
+                                          <div key={s.instrumentName} className="flex items-center justify-between text-xs">
                                             <span className={s.isComplete ? "text-green-600" : "text-red-600"}>
                                               {s.isComplete ? "\u2713" : "\u2717"} {s.label}
                                             </span>
+                                            {!s.isComplete && (
+                                              <SurveyLinkButton recordId={p.recordId} event={parentVisit.eventName} instrument={s.instrumentName} />
+                                            )}
                                           </div>
                                         ))}
                                       </div>
@@ -391,5 +397,53 @@ function FollowupStatusBadge({
     <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-gray-100 text-gray-500">
       {visit.totalComplete}/{visit.totalSurveys}
     </span>
+  );
+}
+
+function SurveyLinkButton({
+  recordId,
+  event,
+  instrument,
+}: {
+  recordId: string;
+  event: string;
+  instrument: string;
+}) {
+  const [link, setLink] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function fetchLink() {
+    if (link) {
+      window.open(link, "_blank");
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch(
+        `/api/redcap/survey-link?record=${recordId}&event=${event}&instrument=${instrument}`
+      );
+      const data = await res.json();
+      if (data.link) {
+        setLink(data.link);
+        window.open(data.link, "_blank");
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        fetchLink();
+      }}
+      disabled={loading}
+      className="text-teal-600 hover:text-teal-800 font-medium underline disabled:opacity-50"
+    >
+      {loading ? "..." : "Link"}
+    </button>
   );
 }
