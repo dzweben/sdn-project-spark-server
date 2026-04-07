@@ -80,13 +80,19 @@ async function fetchSurveyLink(recordId, eventName, instrument) {
   }
 }
 
-// Run promises with concurrency limit to avoid hammering REDCap
-async function batchAsync(tasks, concurrency = 5) {
+// Run promises with concurrency limit and delay to avoid REDCap rate limiting/IP ban
+async function batchAsync(tasks, concurrency = 3, delayMs = 200) {
   const results = [];
   for (let i = 0; i < tasks.length; i += concurrency) {
     const batch = tasks.slice(i, i + concurrency);
     const batchResults = await Promise.all(batch.map(fn => fn()));
     results.push(...batchResults);
+    if (i + concurrency < tasks.length) {
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+    if (i % 150 === 0 && i > 0) {
+      process.stdout.write(`    ${i}/${tasks.length} done...\r`);
+    }
   }
   return results;
 }
@@ -274,29 +280,31 @@ async function main() {
 
   participants.sort((a, b) => a.subId.localeCompare(b.subId));
 
-  // 6. Fetch survey links for all incomplete surveys
-  console.log("  Fetching survey links for incomplete surveys...");
+  // 6. Fetch survey links for the NEXT incomplete survey per visit type per participant
+  // (This is what would actually be sent as a reminder — not every single incomplete survey)
+  console.log("  Fetching survey links for next incomplete surveys...");
   const linkTasks = [];
   for (const p of participants) {
     for (const [vtKey, visit] of Object.entries(p.visits)) {
-      for (const survey of visit.surveys) {
-        if (!survey.isComplete) {
-          linkTasks.push({
-            recordId: p.recordId,
-            eventName: visit.eventName,
-            instrumentName: survey.instrumentName,
-            // store reference so we can write back
-            survey,
-          });
-        }
+      if (visit.allComplete) continue;
+      // Find the first incomplete survey in sequence
+      const nextIncomplete = visit.surveys.find(s => !s.isComplete);
+      if (nextIncomplete) {
+        linkTasks.push({
+          recordId: p.recordId,
+          eventName: visit.eventName,
+          instrumentName: nextIncomplete.instrumentName,
+          survey: nextIncomplete,
+        });
       }
     }
   }
-  console.log(`    ${linkTasks.length} incomplete surveys to fetch links for...`);
+  console.log(`    ${linkTasks.length} next-incomplete surveys to fetch links for...`);
 
   const linkResults = await batchAsync(
     linkTasks.map(t => () => fetchSurveyLink(t.recordId, t.eventName, t.instrumentName)),
-    10 // 10 concurrent requests
+    3, // 3 concurrent, 200ms delay between batches
+    200
   );
 
   for (let i = 0; i < linkTasks.length; i++) {
