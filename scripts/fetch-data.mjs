@@ -13,9 +13,15 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const REDCAP_API_URL = "https://cphapps.temple.edu/redcap/api/";
-const SPARK_TOKEN = "C2148ACF4DCF0E13A2BF5F74667A3643";
-const RECRUIT_TOKEN = "18DEDC5B4E005B6CB48EBDADCA251F53";
+// Tokens: from env vars (GitHub Actions) or fallback to local .env file
+const REDCAP_API_URL = process.env.REDCAP_API_URL || "https://cphapps.temple.edu/redcap/api/";
+const SPARK_TOKEN = process.env.REDCAP_SPARK_TOKEN || (() => { try { return fs.readFileSync(path.join(__dirname, "..", "..", "keys", "spark-rdcp.txt"), "utf-8").trim(); } catch { return ""; } })();
+const RECRUIT_TOKEN = process.env.REDCAP_RECRUIT_TOKEN || (() => { try { return fs.readFileSync(path.join(__dirname, "..", "..", "keys", "rcrt.pjct.txt"), "utf-8").trim(); } catch { return ""; } })();
+
+if (!SPARK_TOKEN || !RECRUIT_TOKEN) {
+  console.error("Missing REDCap tokens. Set REDCAP_SPARK_TOKEN and REDCAP_RECRUIT_TOKEN env vars, or place key files in ../keys/");
+  process.exit(1);
+}
 
 // --- CSV Parser ---
 function parseCSV(text) {
