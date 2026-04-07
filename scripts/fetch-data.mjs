@@ -203,10 +203,11 @@ async function main() {
   const participants = [];
 
   for (const recordId of v1RecordIds) {
-    const info = participantInfo[recordId];
-    if (!info || !info.subId) continue;
+    const info = participantInfo[recordId] || { subId: "", email: "", v1Date: "", v2Date: "" };
 
-    const contact = contacts[info.subId.toLowerCase()] || {
+    // Use sub_id to look up contacts (if available), but never skip a participant for missing sub_id
+    const contactKey = info.subId ? info.subId.toLowerCase() : "";
+    const contact = (contactKey && contacts[contactKey]) || {
       email: "", childEmail: "", phone: "", childPhone: "", preferText: "",
     };
 
@@ -235,8 +236,11 @@ async function main() {
       };
     }
 
+    // record_id is the PID shown on the dashboard (e.g., "s5599")
+    // sub_id is a secondary study ID used for contact lookup (e.g., "1036")
     participants.push({
-      subId: info.subId, recordId, v1Date: info.v1Date || null, v2Date: info.v2Date || null,
+      subId: recordId, recordId, studyId: info.subId || "",
+      v1Date: info.v1Date || null, v2Date: info.v2Date || null,
       email: contact.email || info.email, childEmail: contact.childEmail,
       phone: contact.phone, childPhone: contact.childPhone, visits,
     });
