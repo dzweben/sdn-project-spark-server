@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import type { Participant } from "@/types";
 import { VISIT_TYPES, FOLLOWUP_PERIODS } from "@/lib/surveys";
 
@@ -9,6 +9,7 @@ interface SurveyToSend {
   label: string;
   instrumentName: string;
   eventName: string;
+  surveyLink: string | null;
 }
 
 interface ComputedReminder {
@@ -76,6 +77,7 @@ function computeReminders(participants: Participant[]): ComputedReminder[] {
           label: nextIncomplete.label,
           instrumentName: nextIncomplete.instrumentName,
           eventName: visitTypeDef.eventName,
+          surveyLink: nextIncomplete.surveyLink || null,
         };
 
         const windowEnd = new Date(date);
@@ -119,43 +121,22 @@ function computeReminders(participants: Participant[]): ComputedReminder[] {
 }
 
 function SurveyLinkCell({ reminder }: { reminder: ComputedReminder }) {
-  const [link, setLink] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  async function fetchLink() {
-    if (link) {
-      window.open(link, "_blank");
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await fetch(
-        `/api/redcap/survey-link?record=${reminder.recordId}&event=${reminder.surveyToSend.eventName}&instrument=${reminder.surveyToSend.instrumentName}`
-      );
-      const data = await res.json();
-      if (data.link) {
-        setLink(data.link);
-        window.open(data.link, "_blank");
-      }
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
+  const { surveyToSend } = reminder;
+  if (surveyToSend.surveyLink) {
+    return (
+      <a
+        href={surveyToSend.surveyLink}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-left text-teal-700 hover:text-teal-900 underline decoration-dotted underline-offset-2 font-medium text-xs"
+        title={surveyToSend.surveyLink}
+      >
+        {surveyToSend.label}
+      </a>
+    );
   }
-
   return (
-    <button
-      onClick={(e) => {
-        e.stopPropagation();
-        fetchLink();
-      }}
-      disabled={loading}
-      className="text-left text-teal-700 hover:text-teal-900 underline decoration-dotted underline-offset-2 font-medium disabled:opacity-50 text-xs"
-      title={`Click to open survey link for ${reminder.surveyToSend.label}`}
-    >
-      {loading ? "Loading..." : reminder.surveyToSend.label}
-    </button>
+    <span className="text-xs text-gray-500">{surveyToSend.label}</span>
   );
 }
 
@@ -168,6 +149,7 @@ export default function RemindersPage() {
   const [visitFilter, setVisitFilter] = useState<string>("all");
   const [channelFilter, setChannelFilter] = useState<string>("all");
   const [page, setPage] = useState(0);
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const PAGE_SIZE = 50;
 
   useEffect(() => {
@@ -190,6 +172,12 @@ export default function RemindersPage() {
     () => computeReminders(participants),
     [participants]
   );
+
+  const participantMap = useMemo(() => {
+    const map: Record<string, Participant> = {};
+    for (const p of participants) map[p.subId] = p;
+    return map;
+  }, [participants]);
 
   const filtered = useMemo(() => {
     return allReminders.filter((r) => {
@@ -328,49 +316,82 @@ export default function RemindersPage() {
               </tr>
             </thead>
             <tbody>
-              {pageData.map((r) => (
-                <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="px-4 py-3 text-gray-600 font-mono text-xs whitespace-nowrap">
-                    {new Date(r.scheduledDate).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}{" "}
-                    5:00 PM
-                  </td>
-                  <td className="px-4 py-3 font-mono font-medium text-gray-900">{r.subId}</td>
-                  <td className="px-4 py-3 text-gray-600 text-xs">{r.visitLabel}</td>
-                  <td className="px-4 py-3">
-                    <SurveyLinkCell reminder={r} />
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
-                      {r.reminderNumber} of 3
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                      r.channel === "email"
-                        ? "bg-blue-100 text-blue-700"
-                        : "bg-purple-100 text-purple-700"
-                    }`}>
-                      {r.channel === "email" ? "Email" : "Text"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-gray-600 text-xs max-w-[200px] truncate">
-                    {r.channel === "email" ? r.recipientEmail || "N/A" : r.recipientPhone || "N/A"}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold ${
-                      r.status === "would-send"
-                        ? "bg-teal-100 text-teal-700"
-                        : "bg-gray-100 text-gray-500"
-                    }`}>
-                      {r.status === "would-send" ? "Would Send" : "Past"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {pageData.map((r) => {
+                const isExpanded = expandedRow === r.id;
+                const pData = participantMap[r.subId];
+                return (
+                  <React.Fragment key={r.id}>
+                    <tr
+                      className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                      onClick={() => setExpandedRow(isExpanded ? null : r.id)}
+                    >
+                      <td className="px-4 py-3 text-gray-600 font-mono text-xs whitespace-nowrap">
+                        {new Date(r.scheduledDate).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}{" "}
+                        5:00 PM
+                      </td>
+                      <td className="px-4 py-3 font-mono font-medium text-gray-900">{r.subId}</td>
+                      <td className="px-4 py-3 text-gray-600 text-xs">{r.visitLabel}</td>
+                      <td className="px-4 py-3">
+                        <SurveyLinkCell reminder={r} />
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+                          {r.reminderNumber} of 3
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                          r.channel === "email"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-purple-100 text-purple-700"
+                        }`}>
+                          {r.channel === "email" ? "Email" : "Text"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-600 text-xs max-w-[200px] truncate">
+                        {r.channel === "email" ? r.recipientEmail || "N/A" : r.recipientPhone || "N/A"}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold ${
+                          r.status === "would-send"
+                            ? "bg-teal-100 text-teal-700"
+                            : "bg-gray-100 text-gray-500"
+                        }`}>
+                          {r.status === "would-send" ? "Would Send" : "Past"}
+                        </span>
+                      </td>
+                    </tr>
+                    {isExpanded && pData && (
+                      <tr>
+                        <td colSpan={8} className="px-4 py-4 bg-teal-50/30 border-b border-gray-200">
+                          <div className="space-y-3">
+                            <div className="flex flex-wrap gap-6 text-xs text-gray-600">
+                              <span><strong>V1 Date:</strong> {pData.v1Date || "TBD"}</span>
+                              <span><strong>V2 Date:</strong> {pData.v2Date || "TBD"}</span>
+                              <span><strong>Email:</strong> {pData.email || "N/A"}</span>
+                              <span><strong>Phone:</strong> {pData.phone || "N/A"}</span>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                              {Object.entries(pData.visits).map(([key, visit]) => (
+                                <div key={key} className="bg-white rounded-lg border border-gray-200 p-2">
+                                  <p className="text-xs font-bold text-gray-700 mb-1">{visit.label}</p>
+                                  <div className={`text-xs font-bold ${visit.allComplete ? "text-green-600" : "text-red-600"}`}>
+                                    {visit.totalComplete}/{visit.totalSurveys} {visit.allComplete ? "Complete" : "Incomplete"}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>

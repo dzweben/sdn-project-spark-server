@@ -67,6 +67,30 @@ async function fetchReport(reportId) {
   return parseCSV(csv);
 }
 
+async function fetchSurveyLink(recordId, eventName, instrument) {
+  try {
+    const text = await redcapPost(SPARK_TOKEN, {
+      content: "surveyLink", format: "json",
+      record: recordId, event: eventName, instrument,
+    });
+    const trimmed = text.trim();
+    return trimmed.startsWith("http") ? trimmed : null;
+  } catch {
+    return null;
+  }
+}
+
+// Run promises with concurrency limit to avoid hammering REDCap
+async function batchAsync(tasks, concurrency = 5) {
+  const results = [];
+  for (let i = 0; i < tasks.length; i += concurrency) {
+    const batch = tasks.slice(i, i + concurrency);
+    const batchResults = await Promise.all(batch.map(fn => fn()));
+    results.push(...batchResults);
+  }
+  return results;
+}
+
 async function fetchRecords(token, params) {
   const payload = { content: "record", format: "json" };
   if (params.records) params.records.forEach((r, i) => payload[`records[${i}]`] = r);
@@ -249,6 +273,38 @@ async function main() {
   }
 
   participants.sort((a, b) => a.subId.localeCompare(b.subId));
+
+  // 6. Fetch survey links for all incomplete surveys
+  console.log("  Fetching survey links for incomplete surveys...");
+  const linkTasks = [];
+  for (const p of participants) {
+    for (const [vtKey, visit] of Object.entries(p.visits)) {
+      for (const survey of visit.surveys) {
+        if (!survey.isComplete) {
+          linkTasks.push({
+            recordId: p.recordId,
+            eventName: visit.eventName,
+            instrumentName: survey.instrumentName,
+            // store reference so we can write back
+            survey,
+          });
+        }
+      }
+    }
+  }
+  console.log(`    ${linkTasks.length} incomplete surveys to fetch links for...`);
+
+  const linkResults = await batchAsync(
+    linkTasks.map(t => () => fetchSurveyLink(t.recordId, t.eventName, t.instrumentName)),
+    10 // 10 concurrent requests
+  );
+
+  for (let i = 0; i < linkTasks.length; i++) {
+    linkTasks[i].survey.surveyLink = linkResults[i] || null;
+  }
+
+  const linksFound = linkResults.filter(Boolean).length;
+  console.log(`    ${linksFound}/${linkTasks.length} links fetched successfully`);
 
   const totalParticipants = participants.length;
   const v1Complete = participants.filter(p => p.visits.v1_child?.allComplete).length;

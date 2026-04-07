@@ -332,8 +332,16 @@ function ExpandedDetails({ participant: p }: { participant: Participant }) {
                         <span className={s.isComplete ? "text-green-600" : "text-red-600"}>
                           {s.isComplete ? "\u2713" : "\u2717"} {s.label}
                         </span>
-                        {!s.isComplete && (
-                          <SurveyLinkButton recordId={p.recordId} event={visit.eventName} instrument={s.instrumentName} />
+                        {!s.isComplete && s.surveyLink && (
+                          <a
+                            href={s.surveyLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-teal-600 hover:text-teal-800 font-medium underline"
+                          >
+                            Link
+                          </a>
                         )}
                       </div>
                     ))}

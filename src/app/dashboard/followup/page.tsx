@@ -287,7 +287,7 @@ export default function FollowupPage() {
                                               {s.isComplete ? "\u2713" : "\u2717"} {s.label}
                                             </span>
                                             {!s.isComplete && (
-                                              <SurveyLinkButton recordId={p.recordId} event={childVisit.eventName} instrument={s.instrumentName} />
+                                              <SurveyLink url={s.surveyLink} />
                                             )}
                                           </div>
                                         ))}
@@ -302,7 +302,7 @@ export default function FollowupPage() {
                                               {s.isComplete ? "\u2713" : "\u2717"} {s.label}
                                             </span>
                                             {!s.isComplete && (
-                                              <SurveyLinkButton recordId={p.recordId} event={parentVisit.eventName} instrument={s.instrumentName} />
+                                              <SurveyLink url={s.surveyLink} />
                                             )}
                                           </div>
                                         ))}
@@ -400,50 +400,17 @@ function FollowupStatusBadge({
   );
 }
 
-function SurveyLinkButton({
-  recordId,
-  event,
-  instrument,
-}: {
-  recordId: string;
-  event: string;
-  instrument: string;
-}) {
-  const [link, setLink] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  async function fetchLink() {
-    if (link) {
-      window.open(link, "_blank");
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await fetch(
-        `/api/redcap/survey-link?record=${recordId}&event=${event}&instrument=${instrument}`
-      );
-      const data = await res.json();
-      if (data.link) {
-        setLink(data.link);
-        window.open(data.link, "_blank");
-      }
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
-  }
-
+function SurveyLink({ url }: { url?: string | null }) {
+  if (!url) return null;
   return (
-    <button
-      onClick={(e) => {
-        e.stopPropagation();
-        fetchLink();
-      }}
-      disabled={loading}
-      className="text-teal-600 hover:text-teal-800 font-medium underline disabled:opacity-50"
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      className="text-teal-600 hover:text-teal-800 font-medium underline"
     >
-      {loading ? "..." : "Link"}
-    </button>
+      Link
+    </a>
   );
 }
