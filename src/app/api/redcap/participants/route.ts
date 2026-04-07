@@ -180,8 +180,9 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error("Error fetching participants:", error);
+    const message = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { error: "Failed to fetch participant data" },
+      { error: "Failed to fetch participant data", details: message },
       { status: 500 }
     );
   }
