@@ -10,9 +10,9 @@ export interface ComputedReminder {
   incompleteSurveys: { name: string; label: string }[];
 }
 
-// Compute reminder dates: every 3 days for 3 weeks starting day after visit
-// = days 1, 4, 7, 10, 13, 16, 19 after visit date
-const REMINDER_DAYS = [1, 4, 7, 10, 13, 16, 19];
+// Compute reminder dates: once a week for 3 weeks starting day after visit
+// = days 1, 8, 15 after visit date
+const REMINDER_DAYS = [1, 8, 15];
 const MAX_REMINDER_WINDOW_DAYS = 21;
 
 export function computeRemindersForParticipant(

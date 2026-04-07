@@ -26,7 +26,7 @@ interface ComputedReminder {
   surveyToSend: SurveyToSend; // The next incomplete survey that would be sent
 }
 
-const REMINDER_DAYS = [1, 4, 7, 10, 13, 16, 19];
+const REMINDER_DAYS = [1, 8, 15];
 
 function addDays(dateStr: string, days: number): Date {
   const d = new Date(dateStr);
@@ -345,7 +345,7 @@ export default function RemindersPage() {
                   </td>
                   <td className="px-4 py-3 text-center">
                     <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
-                      {r.reminderNumber} of 7
+                      {r.reminderNumber} of 3
                     </span>
                   </td>
                   <td className="px-4 py-3 text-center">
