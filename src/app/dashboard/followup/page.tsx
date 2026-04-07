@@ -51,7 +51,7 @@ export default function FollowupPage() {
         if (!res.ok) throw new Error("Failed to fetch");
         const data = await res.json();
         setParticipants(
-          data.participants.filter((p: Participant) => p.v2Date)
+          data.participants.filter((p: Participant) => p.hasV2)
         );
       } catch (e) {
         setError(e instanceof Error ? e.message : "Unknown error");

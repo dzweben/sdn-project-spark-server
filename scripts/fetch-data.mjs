@@ -211,11 +211,13 @@ async function main() {
       email: "", childEmail: "", phone: "", childPhone: "", preferText: "",
     };
 
+    // V2 status is determined by Report 9491, NOT by whether a date field exists
     const hasV2 = v2RecordIds.has(recordId);
+    const v2Date = hasV2 ? (info.v2Date || null) : null;
     const visits = {};
 
     for (const vt of VISIT_TYPES) {
-      if (vt.key !== "v1_child" && !hasV2 && !info.v2Date) continue;
+      if (vt.key !== "v1_child" && !hasV2) continue;
 
       const eventData = completionMap[recordId]?.[vt.eventName] || {};
       const surveys = vt.instruments.map(inst => {
@@ -240,7 +242,7 @@ async function main() {
     // sub_id is a secondary study ID used for contact lookup (e.g., "1036")
     participants.push({
       subId: recordId, recordId, studyId: info.subId || "",
-      v1Date: info.v1Date || null, v2Date: info.v2Date || null,
+      v1Date: info.v1Date || null, v2Date: v2Date, hasV2,
       email: contact.email || info.email, childEmail: contact.childEmail,
       phone: contact.phone, childPhone: contact.childPhone, visits,
     });
@@ -250,12 +252,13 @@ async function main() {
 
   const totalParticipants = participants.length;
   const v1Complete = participants.filter(p => p.visits.v1_child?.allComplete).length;
-  const v2Complete = participants.filter(p => p.visits.v2_child?.allComplete).length;
+  const v2Visited = participants.filter(p => p.hasV2).length;
+  const v2SurveysComplete = participants.filter(p => p.visits.v2_child?.allComplete && p.visits.v2_parent?.allComplete).length;
 
   const output = {
     participants,
     stats: {
-      totalParticipants, v1Complete, v2Complete,
+      totalParticipants, v1Complete, v2Visited, v2SurveysComplete,
       overallCompletionPercent: totalParticipants > 0 ? Math.round((v1Complete / totalParticipants) * 100) : 0,
     },
     fetchedAt: new Date().toISOString(),
@@ -268,7 +271,8 @@ async function main() {
 
   console.log(`\nDone! ${participants.length} participants written to public/data/participants.json`);
   console.log(`  V1 complete: ${v1Complete}/${totalParticipants}`);
-  console.log(`  V2 complete: ${v2Complete}/${totalParticipants}`);
+  console.log(`  V2 visited: ${v2Visited}/${totalParticipants}`);
+  console.log(`  V2 surveys complete: ${v2SurveysComplete}/${v2Visited}`);
   console.log(`  File size: ${(fs.statSync(outPath).size / 1024).toFixed(0)} KB`);
 }
 

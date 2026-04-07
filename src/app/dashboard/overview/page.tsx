@@ -129,7 +129,7 @@ export default function OverviewPage() {
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
           <StatCard label="Total Participants" value={stats.totalParticipants} />
           <StatCard label="V1 Complete" value={`${stats.v1Complete}/${stats.totalParticipants}`} color="teal" />
-          <StatCard label="V2 Complete" value={`${stats.v2Complete}/${stats.totalParticipants}`} color="teal" />
+          <StatCard label="V2 Visited" value={`${stats.v2Visited}/${stats.totalParticipants}`} color="teal" />
           <StatCard label="V1 Completion Rate" value={`${stats.overallCompletionPercent}%`} color="teal" />
         </div>
       )}

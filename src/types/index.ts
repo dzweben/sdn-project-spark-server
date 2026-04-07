@@ -19,8 +19,10 @@ export interface VisitStatus {
 export interface Participant {
   subId: string;
   recordId: string;
+  studyId: string;
   v1Date: string | null;
   v2Date: string | null;
+  hasV2: boolean;
   email: string;
   childEmail: string;
   phone: string;
@@ -45,7 +47,8 @@ export interface ReminderRow {
 export interface DashboardStats {
   totalParticipants: number;
   v1Complete: number;
-  v2Complete: number;
+  v2Visited: number;
+  v2SurveysComplete: number;
   overallCompletionPercent: number;
 }
 
